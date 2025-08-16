@@ -145,6 +145,8 @@ const aiBestMatch = () => {
   return { palette: best, seedHue: bestHue, score: bestScore };
 };
 
+const PHASES = ["exploration","direction","refinement","production","handoff"];
+
 // ---------- Storage ----------
 const store = {
   get: (key, fallback) => {
@@ -199,13 +201,71 @@ const GlassCard = ({children, className=""}) => (
     );
   }
 
+function ProjectBoard({ projects, activeProjectIdx, setActiveProjectIdx, pinPaletteToPhase, exportProjects, importProjects }) {
+  return (
+    <GlassCard>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold text-[#1F2A2E]">Projets</h3>
+        <div className="flex items-center gap-2">
+          <button onClick={exportProjects} className="px-2 py-1 rounded-xl bg-white/40 hover:bg-white/60 border text-sm"><Icon name="download"/> Export</button>
+          <button onClick={importProjects} className="px-2 py-1 rounded-xl bg-white/40 hover:bg-white/60 border text-sm">Import</button>
+        </div>
+      </div>
+      {projects.length===0 ? (
+        <p className="text-sm text-[#47555A] opacity-80">Créez un projet et épinglez des palettes par phase.</p>
+      ) : (
+        <div className="space-y-4">
+          <select value={activeProjectIdx} onChange={e=>setActiveProjectIdx(parseInt(e.target.value))} className="w-full px-3 py-2 rounded-xl bg-white/60 border border-white/40">
+            <option value={-1}>— Sélectionner un projet —</option>
+            {projects.map((p,i)=>(<option key={i} value={i}>{p.name}</option>))}
+          </select>
+          {activeProjectIdx>=0 && (
+            <div className="space-y-3 max-h-80 overflow-auto pr-1">
+              {PHASES.map(phase => {
+                const lists = projects[activeProjectIdx].phases[phase];
+                return (
+                  <div key={phase} className="rounded-2xl overflow-hidden border border-white/40">
+                    <div className="flex items-center justify-between px-3 py-2 bg-white/55 font-medium capitalize">
+                      <span>{phase}</span>
+                      <button onClick={()=>pinPaletteToPhase(phase)} className="text-xs px-2 py-1 rounded-lg bg-white/60 border">Épingler</button>
+                    </div>
+                    {lists.length===0 ? (
+                      <div className="px-3 py-3 text-sm text-[#47555A] opacity-80">Aucune palette épinglée.</div>
+                    ) : (
+                      <div className="space-y-2 p-3">
+                        {lists.map((cols, pi)=> (
+                          <div key={pi} className="grid grid-cols-8 rounded-xl overflow-hidden border border-white/40">
+                            {cols.map((c,ci)=>(<div key={ci} style={{background:c}} className="h-8"/>))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </GlassCard>
+  );
+}
+
 // ---------- Main App ----------
 export default function PaletteMuse() {
   const [seedHue, setSeedHue] = useState(() => store.get("pm_seedHue", Math.floor(rand(0,360))));
   const [palette, setPalette] = useState(() => store.get("pm_palette", makePalette(seedHue)));
   const [savedColors, setSavedColors] = useState(() => store.get("pm_savedColors", []));
   const [groups, setGroups] = useState(() => store.get("pm_groups", [])); // [{name, colors:[] }]
-  const [projects, setProjects] = useState(() => store.get("pm_projects", [])); // [{name, phases:{Exploration:[], Direction:[], Refinement:[], Production:[], Handoff:[]}}]
+  const [projects, setProjects] = useState(() => {
+    const raw = store.get("pm_projects", []);
+    return raw.map(p => ({
+      name: p.name,
+      phases: Object.fromEntries(
+        PHASES.map(ph => [ph, p.phases?.[ph] || p.phases?.[ph.charAt(0).toUpperCase()+ph.slice(1)] || []])
+      ),
+    }));
+  }); // [{name, phases:{exploration:[], direction:[], refinement:[], production:[], handoff:[]}}]
   const [activeProjectIdx, setActiveProjectIdx] = useState(() => store.get("pm_activeProjectIdx", -1));
   const [lastInk, setLastInk] = useState("#CCCCCC");
 
@@ -240,14 +300,15 @@ export default function PaletteMuse() {
   };
 
   // Project helpers
-  const emptyPhases = () => ({
-    Exploration: [], Direction: [], Refinement: [], Production: [], Handoff: []
+  const createProject = (name) => ({
+    name,
+    phases: Object.fromEntries(PHASES.map(p => [p, []])),
   });
 
   const addProject = () => {
     const name = prompt("Nom du projet ?");
     if (!name) return;
-    const next = [...projects, { name, phases: emptyPhases() }];
+    const next = [...projects, createProject(name)];
     setProjects(next);
     setActiveProjectIdx(next.length-1);
   };
@@ -257,7 +318,7 @@ export default function PaletteMuse() {
     const next = [...projects];
     next[activeProjectIdx].phases[phase].push([...palette]);
     setProjects(next);
-    toast(`Palette épinglée → ${phase}`);
+    toast(`Palette épinglée → ${phase.charAt(0).toUpperCase()+phase.slice(1)}`);
   };
 
   const exportProjects = () => {
@@ -276,14 +337,20 @@ export default function PaletteMuse() {
       const file = inp.files?.[0];
       if (!file) return;
       const text = await file.text();
-      try {
-        const data = JSON.parse(text);
-        setProjects(Array.isArray(data) ? data : projects);
-        toast("Projets importés");
-      } catch { toast("Fichier invalide"); }
+        try {
+          const data = JSON.parse(text);
+          const parsed = Array.isArray(data) ? data : projects;
+          setProjects(parsed.map(p => ({
+            name: p.name,
+            phases: Object.fromEntries(
+              PHASES.map(ph => [ph, p.phases?.[ph] || p.phases?.[ph.charAt(0).toUpperCase()+ph.slice(1)] || []])
+            ),
+          })));
+          toast("Projets importés");
+        } catch { toast("Fichier invalide"); }
+      };
+      inp.click();
     };
-    inp.click();
-  };
 
   // Glass reflection via CSS var
   useEffect(() => {
@@ -361,12 +428,6 @@ export default function PaletteMuse() {
                 );
               })}
             </div>
-
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              {(["Exploration","Direction","Refinement","Production","Handoff"]).map(ph => (
-                <button key={ph} onClick={()=>pinPaletteToPhase(ph)} className="px-3 py-1.5 rounded-xl bg-white/40 hover:bg-white/60 border border-white/40 backdrop-blur-md shadow text-sm">Épingler → {ph}</button>
-              ))}
-            </div>
           </GlassCard>
 
           {/* Right: Library & Projects */}
@@ -419,47 +480,14 @@ export default function PaletteMuse() {
               )}
             </GlassCard>
 
-            <GlassCard>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-[#1F2A2E]">Projets</h3>
-                <div className="flex items-center gap-2">
-                  <button onClick={exportProjects} className="px-2 py-1 rounded-xl bg-white/40 hover:bg-white/60 border text-sm"><Icon name="download"/> Export</button>
-                  <button onClick={importProjects} className="px-2 py-1 rounded-xl bg-white/40 hover:bg-white/60 border text-sm">Import</button>
-                </div>
-              </div>
-
-              {projects.length===0 ? (
-                <p className="text-sm text-[#47555A] opacity-80">Créez un projet et épinglez des palettes par phase.</p>
-              ) : (
-                <div className="space-y-4">
-                  <select value={activeProjectIdx} onChange={e=>setActiveProjectIdx(parseInt(e.target.value))} className="w-full px-3 py-2 rounded-xl bg-white/60 border border-white/40">
-                    <option value={-1}>— Sélectionner un projet —</option>
-                    {projects.map((p,i)=>(<option key={i} value={i}>{p.name}</option>))}
-                  </select>
-
-                  {activeProjectIdx>=0 && (
-                    <div className="space-y-3 max-h-80 overflow-auto pr-1">
-                      {Object.entries(projects[activeProjectIdx].phases).map(([phase, lists],i)=> (
-                        <div key={i} className="rounded-2xl overflow-hidden border border-white/40">
-                          <div className="px-3 py-2 bg-white/55 font-medium">{phase}</div>
-                          {lists.length===0 ? (
-                            <div className="px-3 py-3 text-sm text-[#47555A] opacity-80">Aucune palette épinglée.</div>
-                          ) : (
-                            <div className="space-y-2 p-3">
-                              {lists.map((cols, pi)=> (
-                                <div key={pi} className="grid grid-cols-8 rounded-xl overflow-hidden border border-white/40">
-                                  {cols.map((c,ci)=>(<div key={ci} style={{background:c}} className="h-8"/>))}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </GlassCard>
+            <ProjectBoard
+              projects={projects}
+              activeProjectIdx={activeProjectIdx}
+              setActiveProjectIdx={setActiveProjectIdx}
+              pinPaletteToPhase={pinPaletteToPhase}
+              exportProjects={exportProjects}
+              importProjects={importProjects}
+            />
           </div>
         </div>
       </div>
