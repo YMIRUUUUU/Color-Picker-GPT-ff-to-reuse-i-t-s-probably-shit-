@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import hexToPantone from "./utils/pantoneLookup.js";
 
 /**
  * Palette Muse – Liquid Glass UI Prototype
@@ -61,40 +62,6 @@ const contrastRatio = (hex1, hex2) => {
   return L1 > L2 ? (L1/L2) : (L2/L1);
 };
 
-// ---------- Demo Pantone Approx Dictionary (subset) ----------
-const PANTONE = [
-  { name: "PANTONE 100 C", hex: "#F4ED7C" },
-  { name: "PANTONE 116 C", hex: "#FCD116" },
-  { name: "PANTONE 130 C", hex: "#F2A900" },
-  { name: "PANTONE 1375 C", hex: "#FFA300" },
-  { name: "PANTONE 1655 C", hex: "#FF6A13" },
-  { name: "PANTONE 1807 C", hex: "#A4343A" },
-  { name: "PANTONE 199 C", hex: "#E03C31" },
-  { name: "PANTONE 215 C", hex: "#9E2A2F" },
-  { name: "PANTONE 2685 C", hex: "#2E008B" },
-  { name: "PANTONE 286 C", hex: "#0033A0" },
-  { name: "PANTONE 300 C", hex: "#005EB8" },
-  { name: "PANTONE 3395 C", hex: "#00DC7D" },
-  { name: "PANTONE 354 C", hex: "#009639" },
-  { name: "PANTONE 368 C", hex: "#78BE20" },
-  { name: "PANTONE 429 C", hex: "#A7A8AA" },
-  { name: "PANTONE 430 C", hex: "#7C878E" },
-  { name: "PANTONE 7541 C", hex: "#E5EFF1" },
-  { name: "PANTONE 7544 C", hex: "#5B7F95" },
-  { name: "PANTONE Black 6 C", hex: "#101820" },
-  { name: "PANTONE Warm Gray 3 C", hex: "#D6CFC4" },
-];
-
-const nearestPantone = (hex) => {
-  const [r,g,b] = hexToRgb(hex);
-  let best = null, dist = Infinity;
-  for (const p of PANTONE) {
-    const [pr,pg,pb] = hexToRgb(p.hex);
-    const d = Math.sqrt((r-pr)**2 + (g-pg)**2 + (b-pb)**2);
-    if (d < dist) { dist = d; best = p; }
-  }
-  return best ? { label: `≈ ${best.name}`, hex: best.hex } : { label: "—", hex: "#000000" };
-};
 
 // ---------- Harmony Generator ----------
 const makePalette = (seedHue) => {
@@ -484,7 +451,7 @@ export default function PaletteMuse() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {palette.map((hex, idx) => {
-                const pant = nearestPantone(hex);
+                const pant = hexToPantone(hex);
                 return (
                   <div key={idx} className="group relative">
                     <div className="rounded-2xl overflow-hidden border border-white/40 shadow-lg">
