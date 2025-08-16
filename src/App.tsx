@@ -1,3 +1,4 @@
+ codex/resolve-merge-conflicts-in-pr-#9
 // @ts-nocheck
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import hexToPantone from "./utils/pantoneLookup";
@@ -600,6 +601,15 @@ export default function App() {
           box-shadow: 0 0 0 1px rgba(255,255,255,0.4) inset, 0 25px 60px -20px rgba(0,0,0,0.3), 0 0 30px -6px var(--ink);
         }
       `}</style>
+
+import React from 'react';
+
+export default function App() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center text-center">
+      <h1 className="text-2xl font-bold text-[#333]">Hello GitHub Pages 👋</h1>
+      <p className="text-[#555] mt-2">Ton app React/Vite fonctionne.</p>
+ main
     </div>
   );
 }
