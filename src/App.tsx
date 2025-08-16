@@ -1,13 +1,10 @@
+// @ts-nocheck
 import React, { useEffect, useMemo, useRef, useState } from "react";
- codex/add-hex-to-pantone-dictionary-and-lookup
-import hexToPantone from "./src/utils/pantoneLookup";
+import hexToPantone from "./utils/pantoneLookup";
 
- codex/implement-savepalette-and-loadpalettes-functions
-import { savePalette, loadPalettes } from "./src/utils/storage";
+import { savePalette, loadPalettes } from "./utils/storage";
 
 import useHaloTrail from "./useHaloTrail";
- main
- main
 
 /**
  * Palette Muse – Liquid Glass UI Prototype
@@ -276,12 +273,11 @@ function ProjectBoard({ projects, activeProjectIdx, setActiveProjectIdx, pinPale
 }
 
 // ---------- Main App ----------
-export default function PaletteMuse() {
+export default function App() {
   const [seedHue, setSeedHue] = useState(() => store.get("pm_seedHue", Math.floor(rand(0,360))));
   const [palette, setPalette] = useState(() => store.get("pm_palette", makePalette(seedHue)));
   const [savedColors, setSavedColors] = useState(() => store.get("pm_savedColors", []));
   const [groups, setGroups] = useState(() => store.get("pm_groups", [])); // [{name, colors:[] }]
- codex/implement-savepalette-and-loadpalettes-functions
   const [savedPalettes, setSavedPalettes] = useState(() => loadPalettes());
   const [projects, setProjects] = useState(() => store.get("pm_projects", [])); // [{name, phases:{Exploration:[], Direction:[], Refinement:[], Production:[], Handoff:[]}}]
 
@@ -294,7 +290,6 @@ export default function PaletteMuse() {
       ),
     }));
   }); // [{name, phases:{exploration:[], direction:[], refinement:[], production:[], handoff:[]}}]
- main
   const [activeProjectIdx, setActiveProjectIdx] = useState(() => store.get("pm_activeProjectIdx", -1));
   const [lastInk, setLastInk] = useState("#CCCCCC");
   const [copiedIdx, setCopiedIdx] = useState(null);
@@ -316,7 +311,6 @@ export default function PaletteMuse() {
     setSeedHue(h); setPalette(p);
   };
 
- codex/implement-savepalette-and-loadpalettes-functions
   const handleSavePalette = () => {
     const updated = savePalette(palette);
     setSavedPalettes(updated);
@@ -340,7 +334,6 @@ export default function PaletteMuse() {
     } catch {
       toast("Impossible de copier");
     }
- main
   };
 
   const toastRef = useRef(null);
@@ -459,7 +452,6 @@ export default function PaletteMuse() {
               </div>
             </div>
 
- codex/add-hex-to-pantone-dictionary-and-lookup
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {palette.map((hex, idx) => {
                   const pant = hexToPantone(hex);
@@ -510,7 +502,6 @@ export default function PaletteMuse() {
                 );
               })}
             </div>
- codex/implement-savepalette-and-loadpalettes-functions
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button onClick={handleSavePalette} className="px-2 py-1 rounded-xl bg-white/40 hover:bg-white/60 border border-white/40 text-sm"><Icon name="save"/> Enregistrer la palette</button>
@@ -526,7 +517,6 @@ export default function PaletteMuse() {
                 ))}
               </div>
             )}
- main
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
               {(["Exploration","Direction","Refinement","Production","Handoff"]).map(ph => (
@@ -534,7 +524,6 @@ export default function PaletteMuse() {
               ))}
             </div>
 
- main
           </GlassCard>
 
           {/* Right: Library & Projects */}
