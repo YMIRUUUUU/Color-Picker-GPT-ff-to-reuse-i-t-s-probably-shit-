@@ -1,4 +1,3 @@
- codex/resolve-merge-conflicts-in-pr-#9
 // @ts-nocheck
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import hexToPantone from "./utils/pantoneLookup";
@@ -223,56 +222,6 @@ function ProjectBoard({ projects, activeProjectIdx, setActiveProjectIdx, pinPale
   );
 }
 
-function ProjectBoard({ projects, activeProjectIdx, setActiveProjectIdx, pinPaletteToPhase, exportProjects, importProjects }) {
-  return (
-    <GlassCard>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-[#1F2A2E]">Projets</h3>
-        <div className="flex items-center gap-2">
-          <button onClick={exportProjects} className="px-2 py-1 rounded-xl bg-white/40 hover:bg-white/60 border text-sm"><Icon name="download"/> Export</button>
-          <button onClick={importProjects} className="px-2 py-1 rounded-xl bg-white/40 hover:bg-white/60 border text-sm">Import</button>
-        </div>
-      </div>
-      {projects.length===0 ? (
-        <p className="text-sm text-[#47555A] opacity-80">Créez un projet et épinglez des palettes par phase.</p>
-      ) : (
-        <div className="space-y-4">
-          <select value={activeProjectIdx} onChange={e=>setActiveProjectIdx(parseInt(e.target.value))} className="w-full px-3 py-2 rounded-xl bg-white/60 border border-white/40">
-            <option value={-1}>— Sélectionner un projet —</option>
-            {projects.map((p,i)=>(<option key={i} value={i}>{p.name}</option>))}
-          </select>
-          {activeProjectIdx>=0 && (
-            <div className="space-y-3 max-h-80 overflow-auto pr-1">
-              {PHASES.map(phase => {
-                const lists = projects[activeProjectIdx].phases[phase];
-                return (
-                  <div key={phase} className="rounded-2xl overflow-hidden border border-white/40">
-                    <div className="flex items-center justify-between px-3 py-2 bg-white/55 font-medium capitalize">
-                      <span>{phase}</span>
-                      <button onClick={()=>pinPaletteToPhase(phase)} className="text-xs px-2 py-1 rounded-lg bg-white/60 border">Épingler</button>
-                    </div>
-                    {lists.length===0 ? (
-                      <div className="px-3 py-3 text-sm text-[#47555A] opacity-80">Aucune palette épinglée.</div>
-                    ) : (
-                      <div className="space-y-2 p-3">
-                        {lists.map((cols, pi)=> (
-                          <div key={pi} className="grid grid-cols-8 rounded-xl overflow-hidden border border-white/40">
-                            {cols.map((c,ci)=>(<div key={ci} style={{background:c}} className="h-8"/>))}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-    </GlassCard>
-  );
-}
-
 // ---------- Main App ----------
 export default function App() {
   const [seedHue, setSeedHue] = useState(() => store.get("pm_seedHue", Math.floor(rand(0,360))));
@@ -280,8 +229,6 @@ export default function App() {
   const [savedColors, setSavedColors] = useState(() => store.get("pm_savedColors", []));
   const [groups, setGroups] = useState(() => store.get("pm_groups", [])); // [{name, colors:[] }]
   const [savedPalettes, setSavedPalettes] = useState(() => loadPalettes());
-  const [projects, setProjects] = useState(() => store.get("pm_projects", [])); // [{name, phases:{Exploration:[], Direction:[], Refinement:[], Production:[], Handoff:[]}}]
-
   const [projects, setProjects] = useState(() => {
     const raw = store.get("pm_projects", []);
     return raw.map(p => ({
@@ -320,9 +267,6 @@ export default function App() {
   const handleLoadPalettes = () => {
     setSavedPalettes(loadPalettes());
   };
-
-  const copy = async (text) => {
-    try { await navigator.clipboard.writeText(text); toast(`Copié: ${text}`);} catch { toast("Impossible de copier"); }
 
   const copy = async (text, idx = null) => {
     try {
@@ -459,14 +403,14 @@ export default function App() {
                   return (
                     <div key={idx} className="group relative">
                       <div className="rounded-2xl overflow-hidden border border-white/40 shadow-lg">
-                        <div className="h-24" style={{ background: hex }} />
+                        <div className="h-24 cursor-pointer" style={{ background: hex }} onClick={() => copy(hex, idx)} />
                         <div className="p-3 bg-white/50 backdrop-blur-md">
                           <div className="flex items-center justify-between text-[#1F2A2E]">
-                            <span className="font-mono text-sm">{hex.toUpperCase()}</span>
-                            <span className="font-mono text-sm">{pant.name}</span>
+                            <span className="font-mono text-sm cursor-pointer" onClick={() => copy(hex, idx)}>{hex.toUpperCase()}</span>
+                            <span className="font-mono text-sm" title={pant.hex}>{pant.name}</span>
                           </div>
                           <div className="flex items-center gap-1 opacity-80 mt-1">
-                            <button onClick={() => copy(hex)} title="Copier HEX" className="p-1 rounded-lg hover:bg-white/60"><Icon name="copy"/></button>
+                            <button onClick={() => copy(hex, idx)} title="Copier HEX" className="p-1 rounded-lg hover:bg-white/60"><Icon name="copy"/></button>
                             <button onClick={() => setSavedColors(prev=>[...prev, hex])} title="Enregistrer" className="p-1 rounded-lg hover:bg-white/60"><Icon name="save"/></button>
                           </div>
                         </div>
@@ -476,33 +420,7 @@ export default function App() {
                 })}
               </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {palette.map((hex, idx) => {
-                const pant = nearestPantone(hex);
-                return (
-                  <div key={idx} className="group relative">
-                    {copiedIdx === idx && (
-                      <div className="pointer-events-none absolute top-2 right-2 px-2 py-1 rounded bg-black/70 text-white text-xs">
-                        Copié!
-                      </div>
-                    )}
-                    <div className="rounded-2xl overflow-hidden border border-white/40 shadow-lg">
-                      <div className="h-24 cursor-pointer" style={{ background: hex }} onClick={() => copy(hex, idx)} />
-                      <div className="p-3 bg-white/50 backdrop-blur-md">
-                        <div className="flex items-center justify-between">
-                          <span className="font-mono text-sm text-[#1F2A2E] cursor-pointer" onClick={() => copy(hex, idx)}>{hex.toUpperCase()}</span>
-                          <div className="flex items-center gap-1 opacity-80">
-                            <button onClick={() => copy(hex, idx)} title="Copier HEX" className="p-1 rounded-lg hover:bg-white/60"><Icon name="copy"/></button>
-                            <button onClick={() => setSavedColors(prev=>[...prev, hex])} title="Enregistrer" className="p-1 rounded-lg hover:bg-white/60"><Icon name="save"/></button>
-                          </div>
-                        </div>
-                        <div className="text-[11px] text-[#364247] mt-1 cursor-pointer" onClick={() => copy(pant.label, idx)} title="Copier Pantone">{pant.label}</div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button onClick={handleSavePalette} className="px-2 py-1 rounded-xl bg-white/40 hover:bg-white/60 border border-white/40 text-sm"><Icon name="save"/> Enregistrer la palette</button>
@@ -520,8 +438,8 @@ export default function App() {
             )}
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              {(["Exploration","Direction","Refinement","Production","Handoff"]).map(ph => (
-                <button key={ph} onClick={()=>pinPaletteToPhase(ph)} className="px-3 py-1.5 rounded-xl bg-white/40 hover:bg-white/60 border border-white/40 backdrop-blur-md shadow text-sm">Épingler → {ph}</button>
+              {PHASES.map(ph => (
+                <button key={ph} onClick={()=>pinPaletteToPhase(ph)} className="px-3 py-1.5 rounded-xl bg-white/40 hover:bg-white/60 border border-white/40 backdrop-blur-md shadow text-sm">Épingler → {ph.charAt(0).toUpperCase()+ph.slice(1)}</button>
               ))}
             </div>
 
@@ -601,15 +519,6 @@ export default function App() {
           box-shadow: 0 0 0 1px rgba(255,255,255,0.4) inset, 0 25px 60px -20px rgba(0,0,0,0.3), 0 0 30px -6px var(--ink);
         }
       `}</style>
-
-import React from 'react';
-
-export default function App() {
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center text-center">
-      <h1 className="text-2xl font-bold text-[#333]">Hello GitHub Pages 👋</h1>
-      <p className="text-[#555] mt-2">Ton app React/Vite fonctionne.</p>
- main
     </div>
   );
 }
