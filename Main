@@ -1,8 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+ codex/add-hex-to-pantone-dictionary-and-lookup
+import hexToPantone from "./src/utils/pantoneLookup";
+
  codex/implement-savepalette-and-loadpalettes-functions
 import { savePalette, loadPalettes } from "./src/utils/storage";
 
 import useHaloTrail from "./useHaloTrail";
+ main
  main
 
 /**
@@ -66,40 +70,6 @@ const contrastRatio = (hex1, hex2) => {
   return L1 > L2 ? (L1/L2) : (L2/L1);
 };
 
-// ---------- Demo Pantone Approx Dictionary (subset) ----------
-const PANTONE = [
-  { name: "PANTONE 100 C", hex: "#F4ED7C" },
-  { name: "PANTONE 116 C", hex: "#FCD116" },
-  { name: "PANTONE 130 C", hex: "#F2A900" },
-  { name: "PANTONE 1375 C", hex: "#FFA300" },
-  { name: "PANTONE 1655 C", hex: "#FF6A13" },
-  { name: "PANTONE 1807 C", hex: "#A4343A" },
-  { name: "PANTONE 199 C", hex: "#E03C31" },
-  { name: "PANTONE 215 C", hex: "#9E2A2F" },
-  { name: "PANTONE 2685 C", hex: "#2E008B" },
-  { name: "PANTONE 286 C", hex: "#0033A0" },
-  { name: "PANTONE 300 C", hex: "#005EB8" },
-  { name: "PANTONE 3395 C", hex: "#00DC7D" },
-  { name: "PANTONE 354 C", hex: "#009639" },
-  { name: "PANTONE 368 C", hex: "#78BE20" },
-  { name: "PANTONE 429 C", hex: "#A7A8AA" },
-  { name: "PANTONE 430 C", hex: "#7C878E" },
-  { name: "PANTONE 7541 C", hex: "#E5EFF1" },
-  { name: "PANTONE 7544 C", hex: "#5B7F95" },
-  { name: "PANTONE Black 6 C", hex: "#101820" },
-  { name: "PANTONE Warm Gray 3 C", hex: "#D6CFC4" },
-];
-
-const nearestPantone = (hex) => {
-  const [r,g,b] = hexToRgb(hex);
-  let best = null, dist = Infinity;
-  for (const p of PANTONE) {
-    const [pr,pg,pb] = hexToRgb(p.hex);
-    const d = Math.sqrt((r-pr)**2 + (g-pg)**2 + (b-pb)**2);
-    if (d < dist) { dist = d; best = p; }
-  }
-  return best ? { label: `≈ ${best.name}`, hex: best.hex } : { label: "—", hex: "#000000" };
-};
 
 // ---------- Harmony Generator ----------
 const makePalette = (seedHue) => {
@@ -489,6 +459,30 @@ export default function PaletteMuse() {
               </div>
             </div>
 
+ codex/add-hex-to-pantone-dictionary-and-lookup
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {palette.map((hex, idx) => {
+                  const pant = hexToPantone(hex);
+                  return (
+                    <div key={idx} className="group relative">
+                      <div className="rounded-2xl overflow-hidden border border-white/40 shadow-lg">
+                        <div className="h-24" style={{ background: hex }} />
+                        <div className="p-3 bg-white/50 backdrop-blur-md">
+                          <div className="flex items-center justify-between text-[#1F2A2E]">
+                            <span className="font-mono text-sm">{hex.toUpperCase()}</span>
+                            <span className="font-mono text-sm">{pant.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-80 mt-1">
+                            <button onClick={() => copy(hex)} title="Copier HEX" className="p-1 rounded-lg hover:bg-white/60"><Icon name="copy"/></button>
+                            <button onClick={() => setSavedColors(prev=>[...prev, hex])} title="Enregistrer" className="p-1 rounded-lg hover:bg-white/60"><Icon name="save"/></button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {palette.map((hex, idx) => {
                 const pant = nearestPantone(hex);
@@ -532,6 +526,7 @@ export default function PaletteMuse() {
                 ))}
               </div>
             )}
+ main
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
               {(["Exploration","Direction","Refinement","Production","Handoff"]).map(ph => (
