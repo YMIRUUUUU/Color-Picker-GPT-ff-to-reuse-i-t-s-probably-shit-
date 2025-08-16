@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import useHaloTrail from "./useHaloTrail";
 
 /**
  * Palette Muse – Liquid Glass UI Prototype
@@ -190,157 +191,13 @@ const GlassCard = ({children, className=""}) => (
 );
 
 // ---------- Liquid Canvas (ink on water) ----------
-function LiquidCanvas({ activePalette, onInk }) {
-  const canvasRef = useRef(null);
-  const rafRef = useRef(0);
-
-  // Offscreen buffers for silky liquid rendering
-  const inkRef = useRef(null);        // where strokes accumulate
-  const tempRef = useRef(null);       // for blurs/compositing
-
-  const pointerRef = useRef({ x: 0, y: 0, vx: 0, vy: 0, down: false, t: 0 });
-  const lastPosRef = useRef(null);
-
-  const lastColorRef = useRef(activePalette?.[0] || "#777777");
-  useEffect(() => { lastColorRef.current = activePalette?.[0] || lastColorRef.current; }, [activePalette]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-
-    const ensureBuffers = () => {
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      // Work in CSS pixels (no DPR) for predictable blur; scale when drawing to screen
-      const a = document.createElement("canvas");
-      a.width = w; a.height = h; // ink
-      const b = document.createElement("canvas");
-      b.width = w; b.height = h; // temp
-      inkRef.current = a; tempRef.current = b;
-    };
-
-    const resize = () => {
-      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-      canvas.width = canvas.clientWidth * dpr;
-      canvas.height = canvas.clientHeight * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ensureBuffers();
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
-    let lastTime = performance.now();
-    const loop = (t) => {
-      // Aim ~60fps; requestAnimationFrame already targets 60, keep work per frame lean
-      const dt = Math.min(0.033, (t - lastTime) / 1000);
-      lastTime = t;
-
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-
-      // 1) Evaporate very slowly on the ink buffer for long lingering trails
-      const ink = inkRef.current.getContext("2d");
-      ink.globalCompositeOperation = "source-over";
-      ink.fillStyle = "rgba(245,239,227,0.01)"; // fade to blanc-ocre ultra léger
-      ink.fillRect(0, 0, w, h);
-
-      // 2) If pointer moved, lay continuous metaball strokes between last & current
-      const p = pointerRef.current;
-      if (lastPosRef.current) {
-        const pal = activePalette && activePalette.length ? activePalette : ["#8BAAAD", "#BFD8D2", "#F2EAD3", "#E1CE7A"]; // fallback
-        const color = pal[Math.floor(Math.random()*pal.length)];
-        lastColorRef.current = color;
-        onInk?.(color);
-
-        const lp = lastPosRef.current;
-        const dx = p.x - lp.x;
-        const dy = p.y - lp.y;
-        const dist = Math.hypot(dx, dy);
-        const step = 6; // px spacing for smooth 60fps line
-        for (let s = 0; s <= dist; s += step) {
-          const t = s / (dist || 1);
-          const x = lp.x + dx * t;
-          const y = lp.y + dy * t;
-          // pressure-like radius using velocity
-          const speed = Math.min(1.5, Math.hypot(p.vx, p.vy) / 800);
-          const r = 26 + 90 * (1 - speed); // enveloping, larger when slow
-          const g = ink.createRadialGradient(x, y, 0, x, y, r);
-          g.addColorStop(0, color + "55");
-          g.addColorStop(1, color + "00");
-          ink.fillStyle = g;
-          ink.beginPath();
-          ink.arc(x, y, r, 0, Math.PI * 2);
-          ink.fill();
-        }
-      }
-      lastPosRef.current = { x: p.x, y: p.y };
-
-      // 3) Composite: blur for liquid feel, then light it up
-      const tmp = tempRef.current.getContext("2d");
-      tmp.clearRect(0, 0, w, h);
-      tmp.filter = "blur(10px)"; // Apple-like creamy diffusion
-      tmp.drawImage(inkRef.current, 0, 0);
-      tmp.filter = "none";
-
-      // 4) Render to screen with subtle blend & vignette
-      ctx.clearRect(0, 0, w, h);
-      // warm base to keep liquid glass tied to blanc-ocre
-      ctx.globalAlpha = 0.08;
-      ctx.fillStyle = "#F5EFE3";
-      ctx.fillRect(0, 0, w, h);
-
-      ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = "lighter";
-      ctx.drawImage(tempRef.current, 0, 0, w, h);
-      ctx.globalCompositeOperation = "source-over";
-
-      // 5) Cursor aura reflecting current ink color (enveloppant & régulier)
-      const auraR = 70;
-      const aura = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, auraR);
-      aura.addColorStop(0, lastColorRef.current + "44");
-      aura.addColorStop(1, lastColorRef.current + "00");
-      ctx.fillStyle = aura;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, auraR, 0, Math.PI * 2);
-      ctx.fill();
-
-      rafRef.current = requestAnimationFrame(loop);
-    };
-    rafRef.current = requestAnimationFrame(loop);
-
-    // Pointer handling with velocity tracking
-    const setPointer = (clientX, clientY) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const y = clientY - rect.top;
-      const p = pointerRef.current;
-      const t = performance.now();
-      const dt = Math.max(0.001, (t - p.t) / 1000);
-      const vx = (x - p.x) / dt;
-      const vy = (y - p.y) / dt;
-      pointerRef.current = { x, y, vx, vy, down: p.down, t };
-    };
-
-    const onMove = (e) => {
-      if (e.touches && e.touches[0]) setPointer(e.touches[0].clientX, e.touches[0].clientY);
-      else setPointer(e.clientX, e.clientY);
-    };
-
-    canvas.addEventListener("mousemove", onMove);
-    canvas.addEventListener("touchmove", onMove, { passive: true });
-
-    return () => {
-      window.removeEventListener("resize", resize);
-      canvas.removeEventListener("mousemove", onMove);
-      canvas.removeEventListener("touchmove", onMove);
-      cancelAnimationFrame(rafRef.current);
-    };
-  }, [activePalette, onInk]);
-
-  return (
-    <canvas ref={canvasRef} className="absolute inset-0 w-full h-full [touch-action:manipulation]" />
-  );
-}
+  function LiquidCanvas({ activePalette, onInk }) {
+    const canvasRef = useRef(null);
+    useHaloTrail(canvasRef, activePalette, onInk);
+    return (
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full [touch-action:manipulation]" />
+    );
+  }
 
 // ---------- Main App ----------
 export default function PaletteMuse() {
