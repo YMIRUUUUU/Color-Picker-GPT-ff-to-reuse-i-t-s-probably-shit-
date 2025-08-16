@@ -318,6 +318,7 @@ export default function PaletteMuse() {
   }); // [{name, phases:{exploration:[], direction:[], refinement:[], production:[], handoff:[]}}]
   const [activeProjectIdx, setActiveProjectIdx] = useState(() => store.get("pm_activeProjectIdx", -1));
   const [lastInk, setLastInk] = useState("#CCCCCC");
+  const [copiedIdx, setCopiedIdx] = useState(null);
 
   useEffect(() => { store.set("pm_seedHue", seedHue); }, [seedHue]);
   useEffect(() => { store.set("pm_palette", palette); }, [palette]);
@@ -336,8 +337,17 @@ export default function PaletteMuse() {
     setSeedHue(h); setPalette(p);
   };
 
-  const copy = async (text) => {
-    try { await navigator.clipboard.writeText(text); toast(`Copié: ${text}`);} catch { toast("Impossible de copier"); }
+  const copy = async (text, idx = null) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (idx !== null) {
+        setCopiedIdx(idx);
+        setTimeout(() => setCopiedIdx(null), 1000);
+      }
+      toast(`Copié: ${text}`);
+    } catch {
+      toast("Impossible de copier");
+    }
   };
 
   const toastRef = useRef(null);
@@ -461,17 +471,22 @@ export default function PaletteMuse() {
                 const pant = nearestPantone(hex);
                 return (
                   <div key={idx} className="group relative">
+                    {copiedIdx === idx && (
+                      <div className="pointer-events-none absolute top-2 right-2 px-2 py-1 rounded bg-black/70 text-white text-xs">
+                        Copié!
+                      </div>
+                    )}
                     <div className="rounded-2xl overflow-hidden border border-white/40 shadow-lg">
-                      <div className="h-24" style={{ background: hex }} />
+                      <div className="h-24 cursor-pointer" style={{ background: hex }} onClick={() => copy(hex, idx)} />
                       <div className="p-3 bg-white/50 backdrop-blur-md">
                         <div className="flex items-center justify-between">
-                          <span className="font-mono text-sm text-[#1F2A2E]">{hex.toUpperCase()}</span>
+                          <span className="font-mono text-sm text-[#1F2A2E] cursor-pointer" onClick={() => copy(hex, idx)}>{hex.toUpperCase()}</span>
                           <div className="flex items-center gap-1 opacity-80">
-                            <button onClick={() => copy(hex)} title="Copier HEX" className="p-1 rounded-lg hover:bg-white/60"><Icon name="copy"/></button>
+                            <button onClick={() => copy(hex, idx)} title="Copier HEX" className="p-1 rounded-lg hover:bg-white/60"><Icon name="copy"/></button>
                             <button onClick={() => setSavedColors(prev=>[...prev, hex])} title="Enregistrer" className="p-1 rounded-lg hover:bg-white/60"><Icon name="save"/></button>
                           </div>
                         </div>
-                        <div className="text-[11px] text-[#364247] mt-1">{pant.label}</div>
+                        <div className="text-[11px] text-[#364247] mt-1 cursor-pointer" onClick={() => copy(pant.label, idx)} title="Copier Pantone">{pant.label}</div>
                       </div>
                     </div>
                   </div>
