@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+ codex/implement-savepalette-and-loadpalettes-functions
 import { savePalette, loadPalettes } from "./src/utils/storage";
+
+import useHaloTrail from "./useHaloTrail";
+ main
 
 /**
  * Palette Muse – Liquid Glass UI Prototype
@@ -145,6 +149,8 @@ const aiBestMatch = () => {
   return { palette: best, seedHue: bestHue, score: bestScore };
 };
 
+const PHASES = ["exploration","direction","refinement","production","handoff"];
+
 // ---------- Storage ----------
 const store = {
   get: (key, fallback) => {
@@ -191,155 +197,111 @@ const GlassCard = ({children, className=""}) => (
 );
 
 // ---------- Liquid Canvas (ink on water) ----------
-function LiquidCanvas({ activePalette, onInk }) {
-  const canvasRef = useRef(null);
-  const rafRef = useRef(0);
+  function LiquidCanvas({ activePalette, onInk }) {
+    const canvasRef = useRef(null);
+    useHaloTrail(canvasRef, activePalette, onInk);
+    return (
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full [touch-action:manipulation]" />
+    );
+  }
 
-  // Offscreen buffers for silky liquid rendering
-  const inkRef = useRef(null);        // where strokes accumulate
-  const tempRef = useRef(null);       // for blurs/compositing
-
-  const pointerRef = useRef({ x: 0, y: 0, vx: 0, vy: 0, down: false, t: 0 });
-  const lastPosRef = useRef(null);
-
-  const lastColorRef = useRef(activePalette?.[0] || "#777777");
-  useEffect(() => { lastColorRef.current = activePalette?.[0] || lastColorRef.current; }, [activePalette]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-
-    const ensureBuffers = () => {
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      // Work in CSS pixels (no DPR) for predictable blur; scale when drawing to screen
-      const a = document.createElement("canvas");
-      a.width = w; a.height = h; // ink
-      const b = document.createElement("canvas");
-      b.width = w; b.height = h; // temp
-      inkRef.current = a; tempRef.current = b;
-    };
-
-    const resize = () => {
-      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-      canvas.width = canvas.clientWidth * dpr;
-      canvas.height = canvas.clientHeight * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ensureBuffers();
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
-    let lastTime = performance.now();
-    const loop = (t) => {
-      // Aim ~60fps; requestAnimationFrame already targets 60, keep work per frame lean
-      const dt = Math.min(0.033, (t - lastTime) / 1000);
-      lastTime = t;
-
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-
-      // 1) Evaporate very slowly on the ink buffer for long lingering trails
-      const ink = inkRef.current.getContext("2d");
-      ink.globalCompositeOperation = "source-over";
-      ink.fillStyle = "rgba(245,239,227,0.01)"; // fade to blanc-ocre ultra léger
-      ink.fillRect(0, 0, w, h);
-
-      // 2) If pointer moved, lay continuous metaball strokes between last & current
-      const p = pointerRef.current;
-      if (lastPosRef.current) {
-        const pal = activePalette && activePalette.length ? activePalette : ["#8BAAAD", "#BFD8D2", "#F2EAD3", "#E1CE7A"]; // fallback
-        const color = pal[Math.floor(Math.random()*pal.length)];
-        lastColorRef.current = color;
-        onInk?.(color);
-
-        const lp = lastPosRef.current;
-        const dx = p.x - lp.x;
-        const dy = p.y - lp.y;
-        const dist = Math.hypot(dx, dy);
-        const step = 6; // px spacing for smooth 60fps line
-        for (let s = 0; s <= dist; s += step) {
-          const t = s / (dist || 1);
-          const x = lp.x + dx * t;
-          const y = lp.y + dy * t;
-          // pressure-like radius using velocity
-          const speed = Math.min(1.5, Math.hypot(p.vx, p.vy) / 800);
-          const r = 26 + 90 * (1 - speed); // enveloping, larger when slow
-          const g = ink.createRadialGradient(x, y, 0, x, y, r);
-          g.addColorStop(0, color + "55");
-          g.addColorStop(1, color + "00");
-          ink.fillStyle = g;
-          ink.beginPath();
-          ink.arc(x, y, r, 0, Math.PI * 2);
-          ink.fill();
-        }
-      }
-      lastPosRef.current = { x: p.x, y: p.y };
-
-      // 3) Composite: blur for liquid feel, then light it up
-      const tmp = tempRef.current.getContext("2d");
-      tmp.clearRect(0, 0, w, h);
-      tmp.filter = "blur(10px)"; // Apple-like creamy diffusion
-      tmp.drawImage(inkRef.current, 0, 0);
-      tmp.filter = "none";
-
-      // 4) Render to screen with subtle blend & vignette
-      ctx.clearRect(0, 0, w, h);
-      // warm base to keep liquid glass tied to blanc-ocre
-      ctx.globalAlpha = 0.08;
-      ctx.fillStyle = "#F5EFE3";
-      ctx.fillRect(0, 0, w, h);
-
-      ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = "lighter";
-      ctx.drawImage(tempRef.current, 0, 0, w, h);
-      ctx.globalCompositeOperation = "source-over";
-
-      // 5) Cursor aura reflecting current ink color (enveloppant & régulier)
-      const auraR = 70;
-      const aura = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, auraR);
-      aura.addColorStop(0, lastColorRef.current + "44");
-      aura.addColorStop(1, lastColorRef.current + "00");
-      ctx.fillStyle = aura;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, auraR, 0, Math.PI * 2);
-      ctx.fill();
-
-      rafRef.current = requestAnimationFrame(loop);
-    };
-    rafRef.current = requestAnimationFrame(loop);
-
-    // Pointer handling with velocity tracking
-    const setPointer = (clientX, clientY) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const y = clientY - rect.top;
-      const p = pointerRef.current;
-      const t = performance.now();
-      const dt = Math.max(0.001, (t - p.t) / 1000);
-      const vx = (x - p.x) / dt;
-      const vy = (y - p.y) / dt;
-      pointerRef.current = { x, y, vx, vy, down: p.down, t };
-    };
-
-    const onMove = (e) => {
-      if (e.touches && e.touches[0]) setPointer(e.touches[0].clientX, e.touches[0].clientY);
-      else setPointer(e.clientX, e.clientY);
-    };
-
-    canvas.addEventListener("mousemove", onMove);
-    canvas.addEventListener("touchmove", onMove, { passive: true });
-
-    return () => {
-      window.removeEventListener("resize", resize);
-      canvas.removeEventListener("mousemove", onMove);
-      canvas.removeEventListener("touchmove", onMove);
-      cancelAnimationFrame(rafRef.current);
-    };
-  }, [activePalette, onInk]);
-
+function ProjectBoard({ projects, activeProjectIdx, setActiveProjectIdx, pinPaletteToPhase, exportProjects, importProjects }) {
   return (
-    <canvas ref={canvasRef} className="absolute inset-0 w-full h-full [touch-action:manipulation]" />
+    <GlassCard>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold text-[#1F2A2E]">Projets</h3>
+        <div className="flex items-center gap-2">
+          <button onClick={exportProjects} className="px-2 py-1 rounded-xl bg-white/40 hover:bg-white/60 border text-sm"><Icon name="download"/> Export</button>
+          <button onClick={importProjects} className="px-2 py-1 rounded-xl bg-white/40 hover:bg-white/60 border text-sm">Import</button>
+        </div>
+      </div>
+      {projects.length===0 ? (
+        <p className="text-sm text-[#47555A] opacity-80">Créez un projet et épinglez des palettes par phase.</p>
+      ) : (
+        <div className="space-y-4">
+          <select value={activeProjectIdx} onChange={e=>setActiveProjectIdx(parseInt(e.target.value))} className="w-full px-3 py-2 rounded-xl bg-white/60 border border-white/40">
+            <option value={-1}>— Sélectionner un projet —</option>
+            {projects.map((p,i)=>(<option key={i} value={i}>{p.name}</option>))}
+          </select>
+          {activeProjectIdx>=0 && (
+            <div className="space-y-3 max-h-80 overflow-auto pr-1">
+              {PHASES.map(phase => {
+                const lists = projects[activeProjectIdx].phases[phase];
+                return (
+                  <div key={phase} className="rounded-2xl overflow-hidden border border-white/40">
+                    <div className="flex items-center justify-between px-3 py-2 bg-white/55 font-medium capitalize">
+                      <span>{phase}</span>
+                      <button onClick={()=>pinPaletteToPhase(phase)} className="text-xs px-2 py-1 rounded-lg bg-white/60 border">Épingler</button>
+                    </div>
+                    {lists.length===0 ? (
+                      <div className="px-3 py-3 text-sm text-[#47555A] opacity-80">Aucune palette épinglée.</div>
+                    ) : (
+                      <div className="space-y-2 p-3">
+                        {lists.map((cols, pi)=> (
+                          <div key={pi} className="grid grid-cols-8 rounded-xl overflow-hidden border border-white/40">
+                            {cols.map((c,ci)=>(<div key={ci} style={{background:c}} className="h-8"/>))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </GlassCard>
+  );
+}
+
+function ProjectBoard({ projects, activeProjectIdx, setActiveProjectIdx, pinPaletteToPhase, exportProjects, importProjects }) {
+  return (
+    <GlassCard>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold text-[#1F2A2E]">Projets</h3>
+        <div className="flex items-center gap-2">
+          <button onClick={exportProjects} className="px-2 py-1 rounded-xl bg-white/40 hover:bg-white/60 border text-sm"><Icon name="download"/> Export</button>
+          <button onClick={importProjects} className="px-2 py-1 rounded-xl bg-white/40 hover:bg-white/60 border text-sm">Import</button>
+        </div>
+      </div>
+      {projects.length===0 ? (
+        <p className="text-sm text-[#47555A] opacity-80">Créez un projet et épinglez des palettes par phase.</p>
+      ) : (
+        <div className="space-y-4">
+          <select value={activeProjectIdx} onChange={e=>setActiveProjectIdx(parseInt(e.target.value))} className="w-full px-3 py-2 rounded-xl bg-white/60 border border-white/40">
+            <option value={-1}>— Sélectionner un projet —</option>
+            {projects.map((p,i)=>(<option key={i} value={i}>{p.name}</option>))}
+          </select>
+          {activeProjectIdx>=0 && (
+            <div className="space-y-3 max-h-80 overflow-auto pr-1">
+              {PHASES.map(phase => {
+                const lists = projects[activeProjectIdx].phases[phase];
+                return (
+                  <div key={phase} className="rounded-2xl overflow-hidden border border-white/40">
+                    <div className="flex items-center justify-between px-3 py-2 bg-white/55 font-medium capitalize">
+                      <span>{phase}</span>
+                      <button onClick={()=>pinPaletteToPhase(phase)} className="text-xs px-2 py-1 rounded-lg bg-white/60 border">Épingler</button>
+                    </div>
+                    {lists.length===0 ? (
+                      <div className="px-3 py-3 text-sm text-[#47555A] opacity-80">Aucune palette épinglée.</div>
+                    ) : (
+                      <div className="space-y-2 p-3">
+                        {lists.map((cols, pi)=> (
+                          <div key={pi} className="grid grid-cols-8 rounded-xl overflow-hidden border border-white/40">
+                            {cols.map((c,ci)=>(<div key={ci} style={{background:c}} className="h-8"/>))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </GlassCard>
   );
 }
 
@@ -349,10 +311,23 @@ export default function PaletteMuse() {
   const [palette, setPalette] = useState(() => store.get("pm_palette", makePalette(seedHue)));
   const [savedColors, setSavedColors] = useState(() => store.get("pm_savedColors", []));
   const [groups, setGroups] = useState(() => store.get("pm_groups", [])); // [{name, colors:[] }]
+ codex/implement-savepalette-and-loadpalettes-functions
   const [savedPalettes, setSavedPalettes] = useState(() => loadPalettes());
   const [projects, setProjects] = useState(() => store.get("pm_projects", [])); // [{name, phases:{Exploration:[], Direction:[], Refinement:[], Production:[], Handoff:[]}}]
+
+  const [projects, setProjects] = useState(() => {
+    const raw = store.get("pm_projects", []);
+    return raw.map(p => ({
+      name: p.name,
+      phases: Object.fromEntries(
+        PHASES.map(ph => [ph, p.phases?.[ph] || p.phases?.[ph.charAt(0).toUpperCase()+ph.slice(1)] || []])
+      ),
+    }));
+  }); // [{name, phases:{exploration:[], direction:[], refinement:[], production:[], handoff:[]}}]
+ main
   const [activeProjectIdx, setActiveProjectIdx] = useState(() => store.get("pm_activeProjectIdx", -1));
   const [lastInk, setLastInk] = useState("#CCCCCC");
+  const [copiedIdx, setCopiedIdx] = useState(null);
 
   useEffect(() => { store.set("pm_seedHue", seedHue); }, [seedHue]);
   useEffect(() => { store.set("pm_palette", palette); }, [palette]);
@@ -371,6 +346,7 @@ export default function PaletteMuse() {
     setSeedHue(h); setPalette(p);
   };
 
+ codex/implement-savepalette-and-loadpalettes-functions
   const handleSavePalette = () => {
     const updated = savePalette(palette);
     setSavedPalettes(updated);
@@ -382,6 +358,19 @@ export default function PaletteMuse() {
 
   const copy = async (text) => {
     try { await navigator.clipboard.writeText(text); toast(`Copié: ${text}`);} catch { toast("Impossible de copier"); }
+
+  const copy = async (text, idx = null) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (idx !== null) {
+        setCopiedIdx(idx);
+        setTimeout(() => setCopiedIdx(null), 1000);
+      }
+      toast(`Copié: ${text}`);
+    } catch {
+      toast("Impossible de copier");
+    }
+ main
   };
 
   const toastRef = useRef(null);
@@ -394,14 +383,15 @@ export default function PaletteMuse() {
   };
 
   // Project helpers
-  const emptyPhases = () => ({
-    Exploration: [], Direction: [], Refinement: [], Production: [], Handoff: []
+  const createProject = (name) => ({
+    name,
+    phases: Object.fromEntries(PHASES.map(p => [p, []])),
   });
 
   const addProject = () => {
     const name = prompt("Nom du projet ?");
     if (!name) return;
-    const next = [...projects, { name, phases: emptyPhases() }];
+    const next = [...projects, createProject(name)];
     setProjects(next);
     setActiveProjectIdx(next.length-1);
   };
@@ -411,7 +401,7 @@ export default function PaletteMuse() {
     const next = [...projects];
     next[activeProjectIdx].phases[phase].push([...palette]);
     setProjects(next);
-    toast(`Palette épinglée → ${phase}`);
+    toast(`Palette épinglée → ${phase.charAt(0).toUpperCase()+phase.slice(1)}`);
   };
 
   const exportProjects = () => {
@@ -430,14 +420,20 @@ export default function PaletteMuse() {
       const file = inp.files?.[0];
       if (!file) return;
       const text = await file.text();
-      try {
-        const data = JSON.parse(text);
-        setProjects(Array.isArray(data) ? data : projects);
-        toast("Projets importés");
-      } catch { toast("Fichier invalide"); }
+        try {
+          const data = JSON.parse(text);
+          const parsed = Array.isArray(data) ? data : projects;
+          setProjects(parsed.map(p => ({
+            name: p.name,
+            phases: Object.fromEntries(
+              PHASES.map(ph => [ph, p.phases?.[ph] || p.phases?.[ph.charAt(0).toUpperCase()+ph.slice(1)] || []])
+            ),
+          })));
+          toast("Projets importés");
+        } catch { toast("Fichier invalide"); }
+      };
+      inp.click();
     };
-    inp.click();
-  };
 
   // Glass reflection via CSS var
   useEffect(() => {
@@ -498,23 +494,29 @@ export default function PaletteMuse() {
                 const pant = nearestPantone(hex);
                 return (
                   <div key={idx} className="group relative">
+                    {copiedIdx === idx && (
+                      <div className="pointer-events-none absolute top-2 right-2 px-2 py-1 rounded bg-black/70 text-white text-xs">
+                        Copié!
+                      </div>
+                    )}
                     <div className="rounded-2xl overflow-hidden border border-white/40 shadow-lg">
-                      <div className="h-24" style={{ background: hex }} />
+                      <div className="h-24 cursor-pointer" style={{ background: hex }} onClick={() => copy(hex, idx)} />
                       <div className="p-3 bg-white/50 backdrop-blur-md">
                         <div className="flex items-center justify-between">
-                          <span className="font-mono text-sm text-[#1F2A2E]">{hex.toUpperCase()}</span>
+                          <span className="font-mono text-sm text-[#1F2A2E] cursor-pointer" onClick={() => copy(hex, idx)}>{hex.toUpperCase()}</span>
                           <div className="flex items-center gap-1 opacity-80">
-                            <button onClick={() => copy(hex)} title="Copier HEX" className="p-1 rounded-lg hover:bg-white/60"><Icon name="copy"/></button>
+                            <button onClick={() => copy(hex, idx)} title="Copier HEX" className="p-1 rounded-lg hover:bg-white/60"><Icon name="copy"/></button>
                             <button onClick={() => setSavedColors(prev=>[...prev, hex])} title="Enregistrer" className="p-1 rounded-lg hover:bg-white/60"><Icon name="save"/></button>
                           </div>
                         </div>
-                        <div className="text-[11px] text-[#364247] mt-1">{pant.label}</div>
+                        <div className="text-[11px] text-[#364247] mt-1 cursor-pointer" onClick={() => copy(pant.label, idx)} title="Copier Pantone">{pant.label}</div>
                       </div>
                     </div>
                   </div>
                 );
               })}
             </div>
+ codex/implement-savepalette-and-loadpalettes-functions
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button onClick={handleSavePalette} className="px-2 py-1 rounded-xl bg-white/40 hover:bg-white/60 border border-white/40 text-sm"><Icon name="save"/> Enregistrer la palette</button>
@@ -536,6 +538,8 @@ export default function PaletteMuse() {
                 <button key={ph} onClick={()=>pinPaletteToPhase(ph)} className="px-3 py-1.5 rounded-xl bg-white/40 hover:bg-white/60 border border-white/40 backdrop-blur-md shadow text-sm">Épingler → {ph}</button>
               ))}
             </div>
+
+ main
           </GlassCard>
 
           {/* Right: Library & Projects */}
@@ -588,47 +592,14 @@ export default function PaletteMuse() {
               )}
             </GlassCard>
 
-            <GlassCard>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-[#1F2A2E]">Projets</h3>
-                <div className="flex items-center gap-2">
-                  <button onClick={exportProjects} className="px-2 py-1 rounded-xl bg-white/40 hover:bg-white/60 border text-sm"><Icon name="download"/> Export</button>
-                  <button onClick={importProjects} className="px-2 py-1 rounded-xl bg-white/40 hover:bg-white/60 border text-sm">Import</button>
-                </div>
-              </div>
-
-              {projects.length===0 ? (
-                <p className="text-sm text-[#47555A] opacity-80">Créez un projet et épinglez des palettes par phase.</p>
-              ) : (
-                <div className="space-y-4">
-                  <select value={activeProjectIdx} onChange={e=>setActiveProjectIdx(parseInt(e.target.value))} className="w-full px-3 py-2 rounded-xl bg-white/60 border border-white/40">
-                    <option value={-1}>— Sélectionner un projet —</option>
-                    {projects.map((p,i)=>(<option key={i} value={i}>{p.name}</option>))}
-                  </select>
-
-                  {activeProjectIdx>=0 && (
-                    <div className="space-y-3 max-h-80 overflow-auto pr-1">
-                      {Object.entries(projects[activeProjectIdx].phases).map(([phase, lists],i)=> (
-                        <div key={i} className="rounded-2xl overflow-hidden border border-white/40">
-                          <div className="px-3 py-2 bg-white/55 font-medium">{phase}</div>
-                          {lists.length===0 ? (
-                            <div className="px-3 py-3 text-sm text-[#47555A] opacity-80">Aucune palette épinglée.</div>
-                          ) : (
-                            <div className="space-y-2 p-3">
-                              {lists.map((cols, pi)=> (
-                                <div key={pi} className="grid grid-cols-8 rounded-xl overflow-hidden border border-white/40">
-                                  {cols.map((c,ci)=>(<div key={ci} style={{background:c}} className="h-8"/>))}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </GlassCard>
+            <ProjectBoard
+              projects={projects}
+              activeProjectIdx={activeProjectIdx}
+              setActiveProjectIdx={setActiveProjectIdx}
+              pinPaletteToPhase={pinPaletteToPhase}
+              exportProjects={exportProjects}
+              importProjects={importProjects}
+            />
           </div>
         </div>
       </div>
