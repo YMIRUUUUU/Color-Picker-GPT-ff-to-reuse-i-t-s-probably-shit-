@@ -512,13 +512,7 @@ export default function App() {
         <div ref={toastRef} className="px-4 py-2 rounded-xl bg-black/70 text-white text-sm transition-opacity duration-300 opacity-0 shadow-lg" />
       </div>
 
-      {/* Liquid Glass accents that reflect last ink color */}
-      <style>{`
-        :root { --ink: ${lastInk}; }
-        .glass-glow {
-          box-shadow: 0 0 0 1px rgba(255,255,255,0.4) inset, 0 25px 60px -20px rgba(0,0,0,0.3), 0 0 30px -6px var(--ink);
-        }
-      `}</style>
+
     </div>
   );
 }
