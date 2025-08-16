@@ -1,10 +1,12 @@
 // @ts-nocheck
+// NOTE: This legacy single-file App is kept for reference but is no longer mounted.
+// The new entrypoint is `src/AppRouter.tsx` with routed pages.
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import hexToPantone from "./utils/pantoneLookup";
 
 import { savePalette, loadPalettes } from "./utils/storage";
 
-import useHaloTrail from "./useHaloTrail";
+// import useHaloTrail from "./useHaloTrail";
 
 /**
  * Palette Muse – Liquid Glass UI Prototype
@@ -164,13 +166,6 @@ const GlassCard = ({children, className=""}) => (
 );
 
 // ---------- Liquid Canvas (ink on water) ----------
-  function LiquidCanvas({ activePalette, onInk }) {
-    const canvasRef = useRef(null);
-    useHaloTrail(canvasRef, activePalette, onInk);
-    return (
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full [touch-action:manipulation]" />
-    );
-  }
 
 function ProjectBoard({ projects, activeProjectIdx, setActiveProjectIdx, pinPaletteToPhase, exportProjects, importProjects }) {
   return (
@@ -239,7 +234,7 @@ export default function App() {
     }));
   }); // [{name, phases:{exploration:[], direction:[], refinement:[], production:[], handoff:[]}}]
   const [activeProjectIdx, setActiveProjectIdx] = useState(() => store.get("pm_activeProjectIdx", -1));
-  const [lastInk, setLastInk] = useState("#CCCCCC");
+
   const [copiedIdx, setCopiedIdx] = useState(null);
 
   useEffect(() => { store.set("pm_seedHue", seedHue); }, [seedHue]);
@@ -343,15 +338,9 @@ export default function App() {
       inp.click();
     };
 
-  // Glass reflection via CSS var
-  useEffect(() => {
-    document.documentElement.style.setProperty("--ink", lastInk);
-  }, [lastInk]);
 
   return (
     <div className="relative min-h-[100vh] w-full overflow-hidden" style={{ background: BLANC_OCRE }}>
-      {/* Liquid canvas underlay */}
-      <LiquidCanvas activePalette={palette} onInk={setLastInk} />
 
       {/* subtle vignette */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(1200px_500px_at_20%_-10%,rgba(255,255,255,0.6),transparent),radial-gradient(800px_400px_at_100%_20%,rgba(255,255,255,0.25),transparent)]" />
@@ -512,13 +501,6 @@ export default function App() {
         <div ref={toastRef} className="px-4 py-2 rounded-xl bg-black/70 text-white text-sm transition-opacity duration-300 opacity-0 shadow-lg" />
       </div>
 
-      {/* Liquid Glass accents that reflect last ink color */}
-      <style>{`
-        :root { --ink: ${lastInk}; }
-        .glass-glow {
-          box-shadow: 0 0 0 1px rgba(255,255,255,0.4) inset, 0 25px 60px -20px rgba(0,0,0,0.3), 0 0 30px -6px var(--ink);
-        }
-      `}</style>
     </div>
   );
 }
