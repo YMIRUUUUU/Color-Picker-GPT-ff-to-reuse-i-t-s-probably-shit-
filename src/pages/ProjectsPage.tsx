@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { exportBundle, importBundle } from '../utils/storage';
 
 const PHASES = ['exploration','direction','refinement','production','handoff'] as const;
 type PhaseKey = typeof PHASES[number];
@@ -52,6 +53,17 @@ const ProjectsPage: React.FC<ProjectsPageProps> = ({ palette }) => {
 				<h2 className="text-lg font-semibold text-[#1F2A2E]">Projets</h2>
 				<div className="flex items-center gap-2">
 					<button onClick={addProject} className="px-3 py-2 rounded-xl bg-white/50 hover:bg-white/70 border">Nouveau projet</button>
+					<button onClick={() => {
+						const data = exportBundle();
+						const blob = new Blob([data], { type: 'application/json' });
+						const url = URL.createObjectURL(blob);
+						const a = document.createElement('a'); a.href = url; a.download = 'palette-muse-backup.json'; a.click(); URL.revokeObjectURL(url);
+					}} className="px-3 py-2 rounded-xl bg-white/50 hover:bg-white/70 border">Exporter</button>
+					<button onClick={() => {
+						const input = document.createElement('input'); input.type = 'file'; input.accept = 'application/json';
+						input.onchange = async () => { const f = input.files?.[0]; if (!f) return; const txt = await f.text(); importBundle(txt); };
+						input.click();
+					}} className="px-3 py-2 rounded-xl bg-white/50 hover:bg-white/70 border">Importer</button>
 				</div>
 			</div>
 

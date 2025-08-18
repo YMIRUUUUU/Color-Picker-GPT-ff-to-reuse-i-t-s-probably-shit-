@@ -36,16 +36,14 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ onAdd }) => {
 				<div className="w-14 h-14 rounded-2xl border border-white/60 shadow" style={{ background: hex }} />
 				<div className="text-sm text-[#1F2A2E]"><span className="font-medium">Aperçu</span> {hex.toUpperCase()}</div>
 			</div>
-			<div className="mt-4 space-y-3">
-				<label className="block text-sm">Hue: {h}°
-					<input type="range" min={0} max={359} value={h} onChange={e => setH(parseInt(e.target.value))} className="w-full" />
-				</label>
-				<label className="block text-sm">Saturation: {s}%
-					<input type="range" min={0} max={100} value={s} onChange={e => setS(parseInt(e.target.value))} className="w-full" />
-				</label>
-				<label className="block text-sm">Lumière: {l}%
-					<input type="range" min={0} max={100} value={l} onChange={e => setL(parseInt(e.target.value))} className="w-full" />
-				</label>
+			<div className="mt-4">
+				<canvas
+					width={220}
+					height={160}
+					className="w-full rounded-xl border border-white/60 bg-white/80"
+					style={{ display: 'none' }}
+				/>
+				<div className="text-xs text-[#47555A]">Utilisez le nouveau sélecteur avancé plus bas.</div>
 			</div>
 			<div className="mt-3">
 				<button onClick={() => onAdd(hex)} className="px-3 py-2 rounded-xl bg-white/50 hover:bg-white/70 border">Ajouter</button>

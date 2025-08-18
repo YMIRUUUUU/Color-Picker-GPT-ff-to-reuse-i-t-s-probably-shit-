@@ -1,8 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import PantoneCard from '../components/PantoneCard';
-import ColorWheel from '../components/ColorWheel';
+import AdvancedColorPicker from '../components/AdvancedColorPicker';
 import MixLab from '../components/MixLab';
 import { loadPalettes, savePalette } from '../utils/storage';
+import ContrastComparator from '../components/ContrastComparator';
+import ColorCardsBoard from '../components/ColorCardsBoard';
+import DynamicPalette from '../components/DynamicPalette';
+import CloudSyncPanel from '../components/CloudSyncPanel';
 
 interface GeneratorPageProps {
 	palette: string[];
@@ -52,9 +56,17 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ palette, setPalette }) =>
 				))}
 			</div>
 
-			<ColorWheel onAdd={addColor} />
+			<AdvancedColorPicker onAdd={addColor} onChange={() => {}} />
 
 			<MixLab poolColors={palette} />
+
+			<ContrastComparator a={palette[0] || '#000'} b={palette[1] || '#FFF'} />
+
+			<ColorCardsBoard colors={palette} onPick={(c)=>{}} />
+
+			<DynamicPalette baseHex={palette[0] || '#4F8A8B'} onAdd={addColor} />
+
+			<CloudSyncPanel />
 
 			<div className="rounded-3xl p-4 border border-white/40 bg-white/30 backdrop-blur-xl">
 				<div className="flex items-center justify-between mb-2">
