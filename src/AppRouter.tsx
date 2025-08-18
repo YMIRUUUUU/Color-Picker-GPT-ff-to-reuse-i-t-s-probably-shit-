@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import GeneratorPage from './pages/GeneratorPage';
 import ProjectsPage from './pages/ProjectsPage';
+import Logo from './components/Logo';
 
 const PageTransition: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 	const location = useLocation();
@@ -22,7 +23,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 			<div className="relative z-10 mx-auto max-w-7xl px-6 py-6">
 				<header className="flex items-center justify-between">
 					<div className="flex items-center gap-3">
-						<div className="h-10 w-10 rounded-2xl bg-white/50 backdrop-blur-md border border-white/30 shadow-md" style={{ boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }} />
+						<Logo size={40} />
 						<div className="leading-tight">
 							<h1 className="text-2xl font-semibold text-[#1F2A2E]">Palette Muse</h1>
 							<p className="text-sm text-[#47555A] opacity-80">Glass · Palettes intelligentes</p>

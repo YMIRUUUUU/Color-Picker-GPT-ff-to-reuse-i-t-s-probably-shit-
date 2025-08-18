@@ -1,4 +1,6 @@
 import React from 'react';
+import { copyMultiFormat } from '../utils/color';
+import { contrastRatio } from '../utils/color';
 import hexToPantone from '../utils/pantoneLookup';
 
 interface PantoneCardProps {
@@ -30,10 +32,14 @@ const PantoneCard: React.FC<PantoneCardProps> = ({ hex, onCopy, onSave }) => {
 					<div className="text-xs text-[#47555A] opacity-80 truncate">{pantone.name}</div>
 				</div>
 			</div>
-			<div className="mt-3 flex items-center gap-2">
+			<div className="mt-3 flex items-center gap-2 flex-wrap">
 				<button onClick={handleCopy} className="px-2 py-1 text-sm rounded-lg bg-white/50 hover:bg-white/70 border">Copier</button>
 				<button onClick={handleSave} className="px-2 py-1 text-sm rounded-lg bg-white/50 hover:bg-white/70 border">Enregistrer</button>
+				<button onClick={() => copyMultiFormat(hex, 'rgb')} className="px-2 py-1 text-sm rounded-lg bg-white/50 hover:bg-white/70 border">RGB</button>
+				<button onClick={() => copyMultiFormat(hex, 'hsl')} className="px-2 py-1 text-sm rounded-lg bg-white/50 hover:bg-white/70 border">HSL</button>
+				<button onClick={() => copyMultiFormat(hex, 'cssVar')} className="px-2 py-1 text-sm rounded-lg bg-white/50 hover:bg-white/70 border">CSS</button>
 			</div>
+			<div className="mt-2 text-[11px] text-[#47555A]">Contraste (sur blanc): {contrastRatio(hex, '#FFFFFF').toFixed(2)} · (sur noir): {contrastRatio(hex, '#000000').toFixed(2)}</div>
 		</div>
 	);
 };

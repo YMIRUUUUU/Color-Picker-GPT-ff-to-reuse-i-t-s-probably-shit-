@@ -88,9 +88,11 @@ const MixLab: React.FC<MixLabProps> = ({ poolColors }) => {
 							<div className="text-sm font-medium text-[#1F2A2E] mb-2">Pinceau</div>
 							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 								<label className="text-sm">Couleur
-									<select value={brushColor} onChange={e => setBrushColor(e.target.value)} className="w-full px-2 py-2 rounded-lg bg-white/70 border">
-										{poolColors.map((c,i)=>(<option key={i} value={c}>{c.toUpperCase()}</option>))}
-									</select>
+									<div className="grid grid-cols-8 gap-2 mt-2">
+										{poolColors.map((c,i)=>(
+											<button key={i} type="button" draggable onDragStart={(e)=>e.dataTransfer.setData('text/plain', c)} onClick={()=>setBrushColor(c)} className={`h-8 rounded-md border ${brushColor===c?'ring-2 ring-[#1F2A2E]':''}`} style={{ background: c }} title={c} />
+										))}
+									</div>
 								</label>
 								<label className="text-sm">Diffusion: {(diffusion*100)|0}%
 									<input type="range" min={0} max={100} value={Math.round(diffusion*100)} onChange={e=>setDiffusion(parseInt(e.target.value)/100)} className="w-full" />
@@ -102,7 +104,9 @@ const MixLab: React.FC<MixLabProps> = ({ poolColors }) => {
 						</div>
 						<div className="rounded-2xl p-3 border border-white/50 bg-white/40">
 							<div className="text-sm font-medium text-[#1F2A2E] mb-2">Peindre et mélanger</div>
-							<PaintCanvas brushColor={brushColor} diffusion={diffusion} brushRadius={radius} onMixedUpdate={setPaintAvg} />
+							<div onDragOver={(e)=>e.preventDefault()} onDrop={(e)=>{ const c = e.dataTransfer.getData('text/plain'); if (c) setBrushColor(c); }}>
+								<PaintCanvas brushColor={brushColor} diffusion={diffusion} brushRadius={radius} onMixedUpdate={setPaintAvg} />
+							</div>
 							<div className="mt-3 flex items-center gap-3">
 								<div className="w-14 h-14 rounded-xl border border-white/60" style={{ background: mixed }} />
 								<div className="text-sm text-[#1F2A2E]">{mixed.toUpperCase()}</div>
